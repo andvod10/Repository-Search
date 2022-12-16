@@ -60,17 +60,11 @@ class CacheConfig constructor(
                 when (value) {
                     is GithubRepository ->
                         log.debug(
-                            inlineLogMessage(
-                                "Cache entry with key $key of type ${value::class.java.name}" +
-                                        " has been cleared by cause $cause"
-                            )
+                            "Cache entry with key $key of type ${value::class.java.name}" +
+                                    " has been cleared by cause $cause"
                         )
                 }
             }
         }
-    }
-
-    private fun inlineLogMessage(text: String): String {
-        return text
     }
 }

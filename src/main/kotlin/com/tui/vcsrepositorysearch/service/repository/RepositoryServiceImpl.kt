@@ -24,8 +24,13 @@ class RepositoryServiceImpl constructor(
             user = ownerName
         ).repositories
         val chunk = repos.chunked(pageable.pageSize)[pageable.pageNumber]
+        val sortedChunk = if (pageable.sort.getOrderFor(RsRepository::name.name)?.isAscending == true) {
+            chunk.sortedBy { it.name }
+        } else {
+            chunk.sortedByDescending { it.name }
+        }
 
-        return PageImpl(chunk.parallelStream()
+        return PageImpl(sortedChunk.parallelStream()
             .map { it.toResponse(githubBranchService.retrieveBranchFromGitHubByRepository(it)) }
             .toList(), pageable, repos.size.toLong())
     }
