@@ -4,7 +4,7 @@ import com.tui.vcsrepositorysearch.application.dto.RsErrorResponse
 import com.tui.vcsrepositorysearch.service.exception.EntityNotFoundException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpMediaTypeNotAcceptableException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import java.io.IOException
@@ -28,7 +28,7 @@ class ControllerAdvisor {
                     code = HttpStatus.NOT_FOUND.value()
                 )
             }
-            is HttpMediaTypeNotSupportedException -> {
+            is HttpMediaTypeNotAcceptableException -> {
                 RsErrorResponse(
                     message = ex.localizedMessage,
                     status = HttpStatus.NOT_ACCEPTABLE,

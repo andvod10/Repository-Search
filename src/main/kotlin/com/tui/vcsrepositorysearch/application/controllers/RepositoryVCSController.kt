@@ -24,7 +24,6 @@ class RepositoryVCSController constructor(
 ) {
     @GetMapping(
         "ownerName/{ownerName}",
-//            consumes = [MediaType.APPLICATION_JSON_VALUE],
         produces = [MediaType.APPLICATION_JSON_VALUE]
     )
     fun getRepositoryByOwnerName(
@@ -40,7 +39,6 @@ class RepositoryVCSController constructor(
 
     @GetMapping(
         "{repositoryName}/ownerName/{ownerName}",
-//            consumes = [MediaType.APPLICATION_JSON_VALUE],
         produces = [MediaType.APPLICATION_JSON_VALUE]
     )
     fun getRepository(
@@ -52,7 +50,6 @@ class RepositoryVCSController constructor(
 
     @GetMapping(
         "{repositoryName}/ownerName/{ownerName}/branches",
-//            consumes = [MediaType.APPLICATION_JSON_VALUE],
         produces = [MediaType.APPLICATION_JSON_VALUE]
     )
     fun getRepositoryBranches(
