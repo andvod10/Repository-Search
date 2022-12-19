@@ -1,0 +1,18 @@
+[
+  {
+    "name":"dependabot/npm_and_yarn/ajv-6.12.6",
+    "commit":{
+      "sha":"274f7919c9d45dbdbb9271885c76abe85cd85049",
+      "url":"https://api.github.com/repos/andvod10/docker-frontend/commits/274f7919c9d45dbdbb9271885c76abe85cd85049"
+    },
+    "protected":false
+  },
+  {
+    "name":"dependabot/npm_and_yarn/async-2.6.4",
+    "commit":{
+      "sha":"e61f564d70517081b898d45b64d96aa25ce9cb9c",
+      "url":"https://api.github.com/repos/andvod10/docker-frontend/commits/e61f564d70517081b898d45b64d96aa25ce9cb9c"
+    },
+    "protected":false
+  }
+]

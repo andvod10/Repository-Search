@@ -4,8 +4,10 @@ import com.tui.vcsrepositorysearch.application.dto.RsBranch
 import com.tui.vcsrepositorysearch.application.dto.RsRepository
 import com.tui.vcsrepositorysearch.data.mappers.toResponse
 import com.tui.vcsrepositorysearch.service.exception.EntityNotFoundException
+import com.tui.vcsrepositorysearch.service.exception.EntityRangeNotFoundException
 import com.tui.vcsrepositorysearch.service.repository.github.GithubBranchService
 import com.tui.vcsrepositorysearch.service.repository.github.GithubRepositoryService
+import org.kohsuke.github.GHRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
@@ -23,7 +25,7 @@ class RepositoryServiceImpl constructor(
         val repos = this.githubRepositoryService.retrieveRepositoryFromGitHubByUser(
             user = ownerName
         ).repositories
-        val chunk = repos.chunked(pageable.pageSize)[pageable.pageNumber]
+        val chunk = getChunkOfList(list = repos, pageable = pageable)
         val sortedChunk = if (pageable.sort.getOrderFor(RsRepository::name.name)?.isAscending == true) {
             chunk.sortedBy { it.name }
         } else {
@@ -33,6 +35,14 @@ class RepositoryServiceImpl constructor(
         return PageImpl(sortedChunk.parallelStream()
             .map { it.toResponse(githubBranchService.retrieveBranchFromGitHubByRepository(it)) }
             .toList(), pageable, repos.size.toLong())
+    }
+
+    private fun getChunkOfList(list: List<GHRepository>, pageable: Pageable): List<GHRepository> {
+        return try {
+            list.chunked(pageable.pageSize)[pageable.pageNumber]
+        } catch (ex: IndexOutOfBoundsException) {
+            throw EntityRangeNotFoundException(list.size)
+        }
     }
 
     override fun getRepositoriesByName(repositoryName: String, ownerName: String): RsRepository {
