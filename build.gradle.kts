@@ -1,6 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
+    // Spring Boot 3 isn't stable with some libraries yet
+    // https://stackoverflow.com/questions/71549614/springfox-type-javax-servlet-http-httpservletrequest-not-present
     id("org.springframework.boot") version "2.6.7"
     id("io.spring.dependency-management") version "1.1.0"
     kotlin("jvm") version "1.7.21"
@@ -29,6 +31,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-rest")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-devtools")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
@@ -37,10 +41,8 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:3.0.5")
 
     //swagger
-    implementation("io.springfox:springfox-boot-starter:3.0.0")
-    implementation("io.springfox:springfox-swagger2:3.0.0")
-    implementation("io.springfox:springfox-swagger-ui:3.0.0")
-    implementation("io.springfox:springfox-bean-validators:3.0.0")
+    implementation("org.springdoc:springdoc-openapi-ui:1.6.14")
+    runtimeOnly("org.springdoc:springdoc-openapi-kotlin:1.6.14")
 
     //github
     implementation("org.kohsuke:github-api:1.313")
@@ -67,11 +69,9 @@ tasks.bootJar {
 tasks.openApiGenerate {
     generatorName.set("spring")
     generatorName.set("kotlin")
-    apiPackage.set("com.tui.pet.api")
-    modelPackage.set("com.tui.pet.model")
+    apiPackage.set("com.tui.vcsrepositorysearch.api")
+    modelPackage.set("com.tui.vcsrepositorysearch.model")
     configOptions.put("delegatePattern", "false")
-    inputSpec.set("$rootDir/src/main/resources/repository-search.yml")
+    inputSpec.set("$rootDir/src/main/resources/static/repository-search.yml")
     outputDir.set("$buildDir/generated")
-    importMappings.put("Pageable", "org.springframework.data.domain.Pageable")
-    importMappings.put("PagedModel", "org.springframework.hateoas.PagedModel")
 }

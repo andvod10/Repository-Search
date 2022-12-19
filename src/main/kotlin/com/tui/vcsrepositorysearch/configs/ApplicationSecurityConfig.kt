@@ -11,19 +11,23 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.filter.CorsFilter
 
 private val SWAGGER_REQUESTS = arrayOf(
-    "/",
-    "/v2/api-docs",
+    "/v3/api-docs",
+    "/v3/api-docs/**",
+    "/v3/api-docs.yaml",
     "/swagger-resources",
     "/swagger-resources/**",
     "/configuration/ui",
     "/configuration/security",
     "/swagger-ui/",
+    "/swagger-ui.html",
     "/swagger-ui/**",
+    "/repository-search.yaml",
     "/webjars/**"
 )
 
 private val AUTH_REQUESTS = SWAGGER_REQUESTS + arrayOf(
     "/",
+    "/actuator/**",
     "/${APIVersions.API}/${APIVersions.V1}/repositories/**"
 )
 

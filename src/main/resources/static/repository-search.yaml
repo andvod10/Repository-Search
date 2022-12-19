@@ -1,0 +1,468 @@
+openapi: 3.0.1
+info:
+  title: Repository Search API
+  description: Interface for retrieving info from VCS. Current version support GitHub.
+  version: 0.0.1
+servers:
+  - url: http://localhost:8080
+    description: Generated server url
+paths:
+  /api/v1/repositories/{repositoryName}/owner/{ownerName}:
+    get:
+      tags:
+        - repository-vcs-controller
+      summary: Returns a users repository with branches.
+      description: "Returns the repository, that wasn't forked."
+      operationId: getRepository
+      parameters:
+        - name: repositoryName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: ownerName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "404":
+          description: Any repository with ownerName not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RsErrorResponseObject'
+        "406":
+          description: Only application/json media type allowed for Response Allow
+            header.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "400":
+          description: Bad request. ownerName must exist.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "200":
+          description: A JSON array of repository short info and latest commits of
+            branch.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsRepository'
+        "5XX":
+          description: Unexpected error. Some problems with connection.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+  /api/v1/repositories/{repositoryName}/owner/{ownerName}/branches:
+    get:
+      tags:
+        - repository-vcs-controller
+      summary: Returns branches of users repository.
+      description: "Returns the list of branches for repository, that wasn't forked."
+      operationId: getRepositoryBranches
+      parameters:
+        - name: repositoryName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: ownerName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "404":
+          description: Any repository with ownerName not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RsErrorResponseObject'
+        "406":
+          description: Only application/json media type allowed for Response Allow
+            header.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "400":
+          description: Bad request. ownerName must exist.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "200":
+          description: A JSON array of latest commits of branches.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "5XX":
+          description: Unexpected error. Some problems with connection.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+  /api/v1/repositories/owner/{ownerName}:
+    get:
+      tags:
+        - repository-vcs-controller
+      summary: Returns a list of users repository.
+      description: "Returns the list of repositories, that wasn't forked."
+      operationId: getRepositoryByOwnerName
+      parameters:
+        - name: ownerName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Zero-based page index (0..N)
+          required: false
+          schema:
+            minimum: 0
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          description: The size of the page to be returned
+          required: false
+          schema:
+            minimum: 1
+            type: integer
+            default: 20
+        - name: sort
+          in: query
+          description: "Sorting criteria in the format: property,(asc|desc). Default\
+          \ sort order is ascending. Multiple sort criteria are supported."
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "404":
+          description: Any repository with ownerName not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "500":
+          description: Internal Server Error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/RsErrorResponseObject'
+        "406":
+          description: Only application/json media type allowed for Response Allow
+            header.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "400":
+          description: Bad request. ownerName must exist.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+        "200":
+          description: A JSON array of repositories short info and latest commits
+            of branch.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsRepositoryModel'
+        "5XX":
+          description: Unexpected error. Some problems with connection.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RsErrorResponse'
+components:
+  schemas:
+    RsErrorResponseObject:
+      required:
+        - status
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - 100 CONTINUE
+            - 101 SWITCHING_PROTOCOLS
+            - 102 PROCESSING
+            - 103 CHECKPOINT
+            - 200 OK
+            - 201 CREATED
+            - 202 ACCEPTED
+            - 203 NON_AUTHORITATIVE_INFORMATION
+            - 204 NO_CONTENT
+            - 205 RESET_CONTENT
+            - 206 PARTIAL_CONTENT
+            - 207 MULTI_STATUS
+            - 208 ALREADY_REPORTED
+            - 226 IM_USED
+            - 300 MULTIPLE_CHOICES
+            - 301 MOVED_PERMANENTLY
+            - 302 FOUND
+            - 302 MOVED_TEMPORARILY
+            - 303 SEE_OTHER
+            - 304 NOT_MODIFIED
+            - 305 USE_PROXY
+            - 307 TEMPORARY_REDIRECT
+            - 308 PERMANENT_REDIRECT
+            - 400 BAD_REQUEST
+            - 401 UNAUTHORIZED
+            - 402 PAYMENT_REQUIRED
+            - 403 FORBIDDEN
+            - 404 NOT_FOUND
+            - 405 METHOD_NOT_ALLOWED
+            - 406 NOT_ACCEPTABLE
+            - 407 PROXY_AUTHENTICATION_REQUIRED
+            - 408 REQUEST_TIMEOUT
+            - 409 CONFLICT
+            - 410 GONE
+            - 411 LENGTH_REQUIRED
+            - 412 PRECONDITION_FAILED
+            - 413 PAYLOAD_TOO_LARGE
+            - 413 REQUEST_ENTITY_TOO_LARGE
+            - 414 URI_TOO_LONG
+            - 414 REQUEST_URI_TOO_LONG
+            - 415 UNSUPPORTED_MEDIA_TYPE
+            - 416 REQUESTED_RANGE_NOT_SATISFIABLE
+            - 417 EXPECTATION_FAILED
+            - 418 I_AM_A_TEAPOT
+            - 419 INSUFFICIENT_SPACE_ON_RESOURCE
+            - 420 METHOD_FAILURE
+            - 421 DESTINATION_LOCKED
+            - 422 UNPROCESSABLE_ENTITY
+            - 423 LOCKED
+            - 424 FAILED_DEPENDENCY
+            - 425 TOO_EARLY
+            - 426 UPGRADE_REQUIRED
+            - 428 PRECONDITION_REQUIRED
+            - 429 TOO_MANY_REQUESTS
+            - 431 REQUEST_HEADER_FIELDS_TOO_LARGE
+            - 451 UNAVAILABLE_FOR_LEGAL_REASONS
+            - 500 INTERNAL_SERVER_ERROR
+            - 501 NOT_IMPLEMENTED
+            - 502 BAD_GATEWAY
+            - 503 SERVICE_UNAVAILABLE
+            - 504 GATEWAY_TIMEOUT
+            - 505 HTTP_VERSION_NOT_SUPPORTED
+            - 506 VARIANT_ALSO_NEGOTIATES
+            - 507 INSUFFICIENT_STORAGE
+            - 508 LOOP_DETECTED
+            - 509 BANDWIDTH_LIMIT_EXCEEDED
+            - 510 NOT_EXTENDED
+            - 511 NETWORK_AUTHENTICATION_REQUIRED
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          type: object
+    RsBranch:
+      required:
+        - last_commit_sha
+        - name
+      type: object
+      properties:
+        name:
+          type: string
+        last_commit_sha:
+          type: string
+    RsRepository:
+      required:
+        - branches
+        - name
+        - owner_login
+      type: object
+      properties:
+        name:
+          type: string
+        owner_login:
+          type: string
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/RsBranch'
+    RsErrorResponse:
+      required:
+        - status
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - 100 CONTINUE
+            - 101 SWITCHING_PROTOCOLS
+            - 102 PROCESSING
+            - 103 CHECKPOINT
+            - 200 OK
+            - 201 CREATED
+            - 202 ACCEPTED
+            - 203 NON_AUTHORITATIVE_INFORMATION
+            - 204 NO_CONTENT
+            - 205 RESET_CONTENT
+            - 206 PARTIAL_CONTENT
+            - 207 MULTI_STATUS
+            - 208 ALREADY_REPORTED
+            - 226 IM_USED
+            - 300 MULTIPLE_CHOICES
+            - 301 MOVED_PERMANENTLY
+            - 302 FOUND
+            - 302 MOVED_TEMPORARILY
+            - 303 SEE_OTHER
+            - 304 NOT_MODIFIED
+            - 305 USE_PROXY
+            - 307 TEMPORARY_REDIRECT
+            - 308 PERMANENT_REDIRECT
+            - 400 BAD_REQUEST
+            - 401 UNAUTHORIZED
+            - 402 PAYMENT_REQUIRED
+            - 403 FORBIDDEN
+            - 404 NOT_FOUND
+            - 405 METHOD_NOT_ALLOWED
+            - 406 NOT_ACCEPTABLE
+            - 407 PROXY_AUTHENTICATION_REQUIRED
+            - 408 REQUEST_TIMEOUT
+            - 409 CONFLICT
+            - 410 GONE
+            - 411 LENGTH_REQUIRED
+            - 412 PRECONDITION_FAILED
+            - 413 PAYLOAD_TOO_LARGE
+            - 413 REQUEST_ENTITY_TOO_LARGE
+            - 414 URI_TOO_LONG
+            - 414 REQUEST_URI_TOO_LONG
+            - 415 UNSUPPORTED_MEDIA_TYPE
+            - 416 REQUESTED_RANGE_NOT_SATISFIABLE
+            - 417 EXPECTATION_FAILED
+            - 418 I_AM_A_TEAPOT
+            - 419 INSUFFICIENT_SPACE_ON_RESOURCE
+            - 420 METHOD_FAILURE
+            - 421 DESTINATION_LOCKED
+            - 422 UNPROCESSABLE_ENTITY
+            - 423 LOCKED
+            - 424 FAILED_DEPENDENCY
+            - 425 TOO_EARLY
+            - 426 UPGRADE_REQUIRED
+            - 428 PRECONDITION_REQUIRED
+            - 429 TOO_MANY_REQUESTS
+            - 431 REQUEST_HEADER_FIELDS_TOO_LARGE
+            - 451 UNAVAILABLE_FOR_LEGAL_REASONS
+            - 500 INTERNAL_SERVER_ERROR
+            - 501 NOT_IMPLEMENTED
+            - 502 BAD_GATEWAY
+            - 503 SERVICE_UNAVAILABLE
+            - 504 GATEWAY_TIMEOUT
+            - 505 HTTP_VERSION_NOT_SUPPORTED
+            - 506 VARIANT_ALSO_NEGOTIATES
+            - 507 INSUFFICIENT_STORAGE
+            - 508 LOOP_DETECTED
+            - 509 BANDWIDTH_LIMIT_EXCEEDED
+            - 510 NOT_EXTENDED
+            - 511 NETWORK_AUTHENTICATION_REQUIRED
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        data:
+          type: object
+    Link:
+      type: object
+      properties:
+        rel:
+          type: string
+        href:
+          type: string
+        hreflang:
+          type: string
+        media:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+        deprecation:
+          type: string
+        profile:
+          type: string
+        name:
+          type: string
+    RsRepositoryModel:
+      required:
+        - branches
+        - name
+        - owner_login
+      type: object
+      properties:
+        name:
+          type: string
+        owner_login:
+          type: string
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/RsBranch'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+  securitySchemes:
+    api_key:
+      type: apiKey
+      description: "Enter the token with the `Bearer: ` prefix, e.g. 'Bearer abcde12345;."
+      name: api_key
+      in: header
