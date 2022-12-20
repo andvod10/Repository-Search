@@ -19,14 +19,14 @@ class GithubRepositoryServiceImpl constructor(
     @Value("\${github.default-page-size}")
     private val githubDefaultPageSize: Int
 ) : GithubRepositoryService {
-    private val log = LoggerFactory.getLogger(GithubBranchServiceImpl::class.java)
+    private val log = LoggerFactory.getLogger(GithubRepositoryServiceImpl::class.java)
 
     @Cacheable(
         value = ["githubRepository"],
         key = "#user"
     )
     override fun retrieveRepositoryFromGitHubByUser(user: String, withForks: Boolean): GithubRepository {
-        log.debug("Direct call to Github was performed")
+        log.debug("Direct call to Github Repository performing...")
         val githubConnection = GitHub.connectAnonymously()
         val fork = if (withForks) {
             GHFork.PARENT_AND_FORKS

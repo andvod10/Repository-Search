@@ -19,10 +19,12 @@ class GithubBranchServiceImpl: GithubBranchService {
         key = "#repository.name"
     )
     override fun retrieveBranchFromGitHubByRepository(repository: GHRepository): GithubBranch {
-        log.debug("Direct call to Github was performed")
-        return GithubBranch(
+        log.debug("Direct call to Github Branch performing...")
+        val githubBranch = GithubBranch(
             repositoryName = repository.name,
             branches = repository.branches.values.toList()
         )
+        log.debug("Direct call to Github Branch performed.")
+        return githubBranch
     }
 }

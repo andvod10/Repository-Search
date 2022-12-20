@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     // Spring Boot 3 isn't stable with some libraries yet
-    // https://stackoverflow.com/questions/71549614/springfox-type-javax-servlet-http-httpservletrequest-not-present
+    // Migrate spring boot to version 3, Spring security permit should work
     id("org.springframework.boot") version "2.6.7"
     id("io.spring.dependency-management") version "1.1.0"
     kotlin("jvm") version "1.7.21"
@@ -13,6 +13,9 @@ plugins {
 group = "com.tui"
 version = "0.0.1-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_17
+
+val coroutinesVersion by extra { "1.3.2" }
+val openApiVersion by extra { "1.6.14" }
 
 configurations {
     compileOnly {
@@ -37,12 +40,19 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
+    //coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-debug:$coroutinesVersion")
+
     //cache
     implementation("com.github.ben-manes.caffeine:caffeine:3.0.5")
 
     //swagger
-    implementation("org.springdoc:springdoc-openapi-ui:1.6.14")
-    runtimeOnly("org.springdoc:springdoc-openapi-kotlin:1.6.14")
+    implementation("org.springdoc:springdoc-openapi-ui:$openApiVersion")
+    runtimeOnly("org.springdoc:springdoc-openapi-kotlin:$openApiVersion")
 
     //github
     implementation("org.kohsuke:github-api:1.313")
