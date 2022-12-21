@@ -8,6 +8,8 @@ plugins {
     kotlin("jvm") version "1.7.21"
     kotlin("plugin.spring") version "1.7.21"
     id("org.openapi.generator") version "6.2.1"
+    id("com.google.cloud.tools.jib") version "2.7.1"
+    id("jp.classmethod.aws.reboot.cloudformation") version "0.45"
 }
 
 group = "com.tui"
@@ -85,3 +87,8 @@ tasks.openApiGenerate {
     inputSpec.set("$rootDir/src/main/resources/static/repository-search.yml")
     outputDir.set("$buildDir/generated")
 }
+
+jib {
+    to.image = "my-docker-id/my-app"
+}
+

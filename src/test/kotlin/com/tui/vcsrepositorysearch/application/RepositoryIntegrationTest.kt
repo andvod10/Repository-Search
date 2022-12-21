@@ -86,7 +86,7 @@ class RepositoryIntegrationTest {
                     }
             """, true
                 )
-            )
+            ).andReturn()
     }
 
     @Test
@@ -146,7 +146,7 @@ class RepositoryIntegrationTest {
                 }
             """, true
                 )
-            )
+            ).andReturn()
     }
 
     @Test
@@ -214,7 +214,7 @@ class RepositoryIntegrationTest {
                     }
             """, true
                 )
-            )
+            ).andReturn()
     }
 
     @Test
@@ -232,7 +232,7 @@ class RepositoryIntegrationTest {
                     {"status":"NOT_FOUND","code":404,"message":"Entities in range not found. Size = 2"}
                 """, true
                 )
-            )
+            ).andReturn()
     }
 
     @Test
@@ -248,13 +248,14 @@ class RepositoryIntegrationTest {
                     {"status":"NOT_ACCEPTABLE","code":406,"message":"Could not find acceptable representation"}
                 """, true
                 )
-            )
+            ).andReturn()
     }
 
     @Test
     fun whenUsedWrongPath_thenStatusIsForbidden() {
         mockMvc.perform(get("$REPOSITORY_PATH+WRONG_PATH"))
             .andExpect(status().isForbidden)
+            .andReturn()
     }
 
     @Test
@@ -280,7 +281,7 @@ class RepositoryIntegrationTest {
                     }
                     """, true
                 )
-            )
+            ).andReturn()
     }
 
     @Test
@@ -305,6 +306,7 @@ class RepositoryIntegrationTest {
                     """, true
                 )
             )
+            .andReturn()
     }
 
     companion object {
