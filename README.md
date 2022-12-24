@@ -68,15 +68,53 @@ error response will be sent in json format.
   ```
 - ```docker build -t myjenkins-blueocean:latest-jdk17 -f Dockerfile.jenkins .```
 - ```
-  docker run --name jenkins-blueocean-17 --restart=on-failure --detach ^
+  docker run --name jenkins-blueocean --restart=on-failure --detach ^
   --network jenkins --env DOCKER_HOST=tcp://docker:2376 ^
   --env DOCKER_CERT_PATH=/certs/client --env DOCKER_TLS_VERIFY=1 ^
   --volume jenkins-data:/var/jenkins_home ^
   --volume jenkins-docker-certs:/certs/client:ro ^
-  --publish 8080:8080 docker:dind --publish 50000:50000 myjenkins-blueocean:latest-jdk17
+  --publish 8080:8080 --publish 50000:50000 myjenkins-blueocean:latest-jdk17
   ```
 
 Additional info about it can be found here https://www.jenkins.io/doc/book/installing/docker/
 
-2. Open jenkins dashboard. It's located on localhost:8080
-- Create new job 
+2. Finish installation jenkins. 
+- Open jenkins dashboard. It's located on localhost:8080
+- Install plugins, choose to install suggested plugins if have no preferred
+- Continue installation. Fill personal data
+- On the next page choose url for access to jenkins
+
+3. Create Job
+- Choose option "Create a job"
+- Fill Job name and choose Pipeline option
+- Add description, if needed.
+  Choose option "GitHub project", and fill `https://github.com/andvod10/Repository-Search`
+  Optionally, can be added SCM trigger, for asking github if changes made. 
+  Example `*/5 * * * *`, every 5 minutes.
+- Pipeline Definition.
+  Pipeline script from SCM -> SCM -> fill Repository url `https://github.com/andvod10/Repository-Search`
+                                  -> add branch `*/blue-ocean-config`
+  Script path `Jenkinsfile`
+  Save
+
+4. Add docker hub configs
+- Open https://hub.docker.com/
+- Choose account settings 
+- Choose security
+- Generate new Access Token
+- Return to Jenkins
+- Dashboard -> Settings Jenkins -> Manage Credentials -> System -> Global credentials -> Add credentials
+- Fill with data:
+Kind - Username and password
+Scope - global
+username - <your docker hub username>
+password - <your access token from docker hub>
+ID - docker-hub
+Description - docker-hub  
+  
+5. Run job
+- Choose "Open Blue Ocean"
+- Run
+- Check your docker hub. Should be added new image
+
+  
