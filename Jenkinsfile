@@ -70,6 +70,28 @@ pipeline {
         sh 'docker push andvod/vcs-repository-search-image:latest'
       }
     }
+
+    stage('Deploy to AWS') {
+        environment {
+            DOCKER_HUB_LOGIN = credentials('docker-hub')
+            VERSION = sh './gradlew properties | grep ^version'
+            NAME = 'vcs-repository-search'
+            STACK = 'stack-repository-search'
+        }
+        steps {
+            withAWS(credentials: 'aws-credentials', region: env.AWS_REGION) {
+                cfnValidate(file:'ecs.yml')
+                cfnUpdate(stack:STACK,
+                    create:true,
+//                     timeoutInMinutes:20,
+                    file:'ecs.yml',
+                    params:['SubnetID': SUBNET_ID, 'ServiceName': DOCKER_HUB_LOGIN_USR, 'ServiceVersion': DOCKER_HUB_LOGIN_USR, 'DockerHubUsername': DOCKER_HUB_LOGIN_USR],
+                    keepParams:['Version'],
+                    pollInterval:1000
+                )
+            }
+        }
+    }
   }
   post {
     always {
