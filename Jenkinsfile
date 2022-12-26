@@ -1,9 +1,13 @@
 pipeline {
+  environment {
+    SERVICE_NAME = 'vcs-repository-search-image'
+    DOCKER_HUB_LOGIN = credentials('docker-hub')
+  }
   agent any
   triggers {
       pollSCM 'H/2 * * * *'
   }
-  
+
   stages {
     stage('Tool Versions') {
       parallel {
@@ -49,7 +53,10 @@ pipeline {
 
     stage('Docker Build') {
       environment {
-        DOCKER_HUB_LOGIN = credentials('docker-hub')
+          SERVICE_VERSION = sh (
+              script: './gradlew properties | grep ^version | sed -e \'s/.*: //\'',
+              returnStdout: true
+          )
       }
       steps {
         script {
@@ -65,27 +72,28 @@ pipeline {
           }
         }
         sh 'docker --help'
-        sh 'docker build -t andvod/vcs-repository-search-image:latest .'
+        sh 'docker build -t andvod/vcs-repository-search-image:$SERVICE_VERSION .'
         sh 'docker login --username=$DOCKER_HUB_LOGIN_USR --password=$DOCKER_HUB_LOGIN_PSW'
-        sh 'docker push andvod/vcs-repository-search-image:latest'
+        sh 'docker push andvod/vcs-repository-search-image:$SERVICE_VERSION'
       }
     }
 
     stage('Deploy to AWS') {
         environment {
-            DOCKER_HUB_LOGIN = credentials('docker-hub')
-            VERSION = sh './gradlew properties | grep ^version'
-            NAME = 'vcs-repository-search'
             STACK = 'stack-repository-search'
+            SERVICE_VERSION = sh (
+                script: './gradlew properties | grep ^version | sed -e \'s/.*: //\'',
+                returnStdout: true
+            )
         }
         steps {
             withAWS(credentials: 'aws-credentials', region: env.AWS_REGION) {
                 cfnValidate(file:'ecs.yml')
                 cfnUpdate(stack:STACK,
                     create:true,
-//                     timeoutInMinutes:20,
+                    timeoutInMinutes:10,
                     file:'ecs.yml',
-                    params:['SubnetID': SUBNET_ID, 'ServiceName': DOCKER_HUB_LOGIN_USR, 'ServiceVersion': DOCKER_HUB_LOGIN_USR, 'DockerHubUsername': DOCKER_HUB_LOGIN_USR],
+                    params:['SubnetID': SUBNET_ID, 'ServiceName': SERVICE_NAME, 'ServiceVersion': SERVICE_VERSION, 'DockerHubUsername': DOCKER_HUB_LOGIN_USR],
                     keepParams:['Version'],
                     pollInterval:1000
                 )
