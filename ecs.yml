@@ -12,7 +12,7 @@ Resources:
   Cluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: deployment-example-cluster
+      ClusterName: stack-deployment-cluster
   ServiceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:

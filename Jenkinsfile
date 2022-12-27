@@ -90,11 +90,11 @@ pipeline {
             withAWS(credentials: 'aws-credentials', region: env.AWS_REGION) {
                 cfnValidate(file:'ecs.yml')
                 cfnUpdate(stack:STACK,
-                    create:true,
+                    create:false,
                     timeoutInMinutes:10,
                     file:'ecs.yml',
                     params:['SubnetID': SUBNET_ID, 'ServiceName': SERVICE_NAME, 'ServiceVersion': SERVICE_VERSION, 'DockerHubUsername': DOCKER_HUB_LOGIN_USR],
-                    keepParams:['Version'],
+                    keepParams:['ServiceName', 'ServiceVersion'],
                     pollInterval:1000
                 )
             }
