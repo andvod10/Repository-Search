@@ -3,16 +3,30 @@ Java 17
 Kotlin 1.7+
 Docker
 
-##Build Project:
-###Windows:
-gradlew clean build
-###Linux:
-./gradlew clean build
-###Docker:
-```docker build -t vcs-repository-search-image .```
-```docker run -p 8080:8080 --name vcs-repository-search vcs-repository-search-image```
+## Build Project:
+### Windows:
+`gradlew clean build`
+### Linux:
+`./gradlew clean build`
+### Docker:
+```
+docker build -t vcs-repository-search-image .
+```
+```
+docker run -p 8080:8080 --name vcs-repository-search vcs-repository-search-image
+```
+### Docker-Compose:
+Start Docker-Compose and rebuild image if exist
+```
+docker-compose up -d --build
+```
+Stop Docker-Compose with all inner services 
+```
+docker-compose down
+```
+Should be used any of [Docker](#docker) or [Docker-Compose](#docker-compose) approach
 
-##Run project
+## Run project
 1.When project is built and integration test are passed, check status of running instance.
 - localhost:8080/actuator/health
 
@@ -32,10 +46,12 @@ In this case can be used Postman or curl.
 When provided forbidden "Accept" header, like "xsl/application", 
 error response will be sent in json format.
 
-##CI/CD
+## CI/CD
 1. Install Jenkins locally, use docker commands:
-###Linux
-- ```docker network create jenkins```
+### Linux
+- ```
+  docker network create jenkins
+  ```
 - ```
   docker run --name jenkins-docker --rm --detach \
   --privileged --network jenkins --network-alias docker \
@@ -45,7 +61,9 @@ error response will be sent in json format.
   --publish 2376:2376 \
   docker:dind --storage-driver overlay2
   ```
-- ```docker build -t myjenkins-blueocean:latest-jdk17 -f Dockerfile.jenkins .```
+- ```
+  docker build -t myjenkins-blueocean:latest-jdk17 -f Dockerfile.jenkins .
+  ```
 - ```
   docker run --name jenkins-blueocean --restart=on-failure --detach \
   --network jenkins --env DOCKER_HOST=tcp://docker:2376 \
@@ -55,8 +73,10 @@ error response will be sent in json format.
   --volume jenkins-docker-certs:/certs/client:ro \
   myjenkins-blueocean:latest-jdk17
   ```
-###Windows
-- ```docker network create jenkins```
+### Windows
+- ```
+  docker network create jenkins
+  ```
 - ```
   docker run --name jenkins-docker --rm --detach ^
   --privileged --network jenkins --network-alias docker ^
@@ -66,7 +86,9 @@ error response will be sent in json format.
   --publish 2376:2376 ^
   docker:dind
   ```
-- ```docker build -t myjenkins-blueocean:latest-jdk17 -f Dockerfile.jenkins .```
+- ```
+  docker build -t myjenkins-blueocean:latest-jdk17 -f Dockerfile.jenkins .
+  ```
 - ```
   docker run --name jenkins-blueocean --restart=on-failure --detach ^
   --network jenkins --env DOCKER_HOST=tcp://docker:2376 ^
@@ -116,5 +138,3 @@ Description - docker-hub
 - Choose "Open Blue Ocean"
 - Run
 - Check your docker hub. Should be added new image
-
-  
