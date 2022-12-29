@@ -1,55 +1,416 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Description: Demo of an AWS Fargate cluster hosting APIs exposed through API Gateway.
+
 Parameters:
-  SubnetID:
+  ImageServiceName:
     Type: String
-  ServiceName:
+    Default: "vcs-repository-search-image"
+  ImageServiceVersion:
     Type: String
-  ServiceVersion:
-    Type: String
+    Default: "0.0.1-SNAPSHOT"
   DockerHubUsername:
     Type: String
+  MinContainers:
+    Type: Number
+    Default: 2
+    Description: "Minimum number of ECS tasks per ECS service"
+  MaxContainers:
+    Type: Number
+    Default: 3
+    Description: "Maximum number of ECS tasks per ECS service"
+  AutoScalingTargetValue:
+    Type: Number
+    Default: 50
+    Description: "Target CPU utilization (%) for ECS services auto scaling"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Generic"
+        Parameters:
+          - ImageServiceName
+          - ImageServiceVersion
+          - DockerHubUsername
+      -
+        Label:
+          default: "Repository Search Service"
+        Parameters:
+          - MinContainers
+          - MaxContainers
+          - AutoScalingTargetValue
+
+Mappings:
+  SubnetConfig:
+    VPC:
+      CIDR: '10.0.0.0/16'
+    PublicFirst:
+      CIDR: '10.0.0.0/24'
+    PublicSecond:
+      CIDR: '10.0.1.0/24'
+    PrivateFirst:
+      CIDR: '10.0.100.0/24'
+    PrivateSecond:
+      CIDR: '10.0.101.0/24'
+
 Resources:
-  Cluster:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'VPC', 'CIDR' ]
+
+  PublicSubnetFirst:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: ''
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PublicFirst', 'CIDR' ]
+      MapPublicIpOnLaunch: true
+  PublicSubnetSecond:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: ''
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PublicSecond', 'CIDR' ]
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetFirst:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: ''
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PrivateFirst', 'CIDR' ]
+      MapPublicIpOnLaunch: false
+  PrivateSubnetSecond:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: ''
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PrivateSecond', 'CIDR' ]
+      MapPublicIpOnLaunch: false
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachement:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachement
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  PublicSubnetFirstRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetFirst
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetSecondRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetSecond
+      RouteTableId: !Ref PublicRouteTable
+
+  NatGatewayFirstAttachment:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachement
+    Properties:
+      Domain: vpc
+  NatGatewaySecondAttachment:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachement
+    Properties:
+      Domain: vpc
+  NatGatewayFirst:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayFirstAttachment.AllocationId
+      SubnetId: !Ref PublicSubnetFirst
+  NatGatewaySecond:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewaySecondAttachment.AllocationId
+      SubnetId: !Ref PublicSubnetSecond
+
+  PrivateRouteTableFirst:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteFirst:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableFirst
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayFirst
+  PrivateRouteTableFirstAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableFirst
+      SubnetId: !Ref PrivateSubnetFirst
+  PrivateRouteTableSecond:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteSecond:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableSecond
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewaySecond
+  PrivateRouteTableSecondAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableSecond
+      SubnetId: !Ref PrivateSubnetSecond
+
+  ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: stack-deployment-cluster
-  ServiceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+      ClusterName: test-stack-deployment-cluster
+
+  AutoScalingRole:
+    Type: AWS::IAM::Role
     Properties:
-      GroupName: ServiceSecurityGroup
-      GroupDescription: Security group for service
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          CidrIp: 0.0.0.0/0
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole
+
+  ECSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ ecs.amazonaws.com ]
+            Action: [ 'sts:AssumeRole' ]
+      Path: /
+      Policies:
+        - PolicyName: ecs-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ec2:AttachNetworkInterface'
+                  - 'ec2:CreateNetworkInterface'
+                  - 'ec2:CreateNetworkInterfacePermission'
+                  - 'ec2:DeleteNetworkInterface'
+                  - 'ec2:DeleteNetworkInterfacePermission'
+                  - 'ec2:Describe*'
+                  - 'ec2:DetachNetworkInterface'
+
+                  - 'elasticloadbalancing:DeregisterInstancesFromLoadBalancer'
+                  - 'elasticloadbalancing:DeregisterTargets'
+                  - 'elasticloadbalancing:Describe*'
+                  - 'elasticloadbalancing:RegisterInstancesWithLoadBalancer'
+                  - 'elasticloadbalancing:RegisterTargets'
+                Resource: '*'
+
+  TaskDefExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Sub ${ServiceName}-task
+      Family: !Sub ${ImageServiceName}-task
       Cpu: 256
       Memory: 512
       NetworkMode: awsvpc
       ContainerDefinitions:
-        - Name: !Sub ${ServiceName}-container
-          Image: !Sub ${DockerHubUsername}/${ServiceName}:${ServiceVersion}
+        - Name: !Sub ${ImageServiceName}-container
+          Image: !Sub ${DockerHubUsername}/${ImageServiceName}:${ImageServiceVersion}
           PortMappings:
             - ContainerPort: 8080
       RequiresCompatibilities:
         - EC2
         - FARGATE
-  Service:
-    Type: AWS::ECS::Service
+      TaskRoleArn: !GetAtt  TaskDefExecutionRole.Arn
+
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      ServiceName: !Sub ${ServiceName}-service
-      Cluster: !Ref Cluster
+      GroupDescription: Automatically created Security Group for ECS
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: '-1'
+      VpcId: !Ref VPC
+  ServiceSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      Description: Load balancer to target
+      FromPort: 8080
+      GroupId: !GetAtt ServiceSecurityGroup.GroupId
+      SourceSecurityGroupId: !GetAtt ServiceLBSecurityGroup.GroupId
+      ToPort: 8080
+
+  ServiceRepositorySearch:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - PrivateRouteFirst
+      - PrivateRouteSecond
+      - LoadBalancerListener
+    Properties:
+      ServiceName: !Sub ${ImageServiceName}-service
+      Cluster: !Ref ECSCluster
       TaskDefinition: !Ref TaskDefinition
-      DesiredCount: 1
+      DesiredCount: 2
       LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Sub ${ImageServiceName}-container
+          ContainerPort: 8080
+          TargetGroupArn: !Ref LoadBalancerTargetGroup
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
+          AssignPublicIp: DISABLED
           Subnets:
-            - !Ref SubnetID
+            - !Ref PrivateSubnetFirst
+            - !Ref PrivateSubnetSecond
           SecurityGroups:
             - !GetAtt ServiceSecurityGroup.GroupId
+
+  ServiceLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Automatically created Security Group for ELB
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow from anyone on port 8080
+          FromPort: 8080
+          IpProtocol: tcp
+          ToPort: 8080
+      VpcId: !Ref VPC
+  ServiceLBSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt ServiceLBSecurityGroup.GroupId
+      IpProtocol: tcp
+      Description: Load balancer to target
+      DestinationSecurityGroupId: !GetAtt ServiceSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+
+  LoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 8080
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VPC
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: 'false'
+      Scheme: internal
+      SecurityGroups:
+        - !GetAtt ServiceLBSecurityGroup.GroupId
+      Subnets:
+        - !Ref PrivateSubnetFirst
+        - !Ref PrivateSubnetSecond
+      Type: application
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref LoadBalancerTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 8080
+      Protocol: HTTP
+
+  VpcLink:
+    Type: AWS::ApiGatewayV2::VpcLink
+    Properties:
+      Name: !Ref ImageServiceName
+      SecurityGroupIds: []
+      SubnetIds:
+        - !Ref PrivateSubnetFirst
+        - !Ref PrivateSubnetSecond
+
+  HTTPApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+
+      Name: repository-search-mapping
+      ProtocolType: HTTP
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HTTPApi
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      Description: HTTP proxy integration
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      IntegrationUri: !Ref LoadBalancerListener
+      PayloadFormatVersion: 1.0
+  Route:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPApi
+      RouteKey: 'ANY /{proxy+}'
+      Target: !Join
+        - /
+        - - integrations
+          - !Ref Integration
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HTTPApi
+      AutoDeploy: true
+      StageName: '$default'
+
+Outputs:
+  APIInvokeURL:
+    Description: Invoke URL for the HTTP API
+    Value: !Sub 'https://${HTTPApi}.execute-api.${AWS::Region}.amazonaws.com'
+  APIId:
+    Description: The ID of the HTTP API
+    Value: !Ref HTTPApi
+  ClusterName:
+    Description: The name of the ECS cluster
+    Value: !Ref ECSCluster
+  VpcId:
+    Description: The ID of the VPC that this stack is deployed in
+    Value: !Ref VPC
+  ServiceSecurityGroup:
+    Description: A security group used to allow Fargate containers to receive traffic
+    Value: !Ref ServiceSecurityGroup
+  ServiceLBSecurityGroup:
+    Description: A security group used to allow ALB traffic
+    Value: !Ref ServiceLBSecurityGroup
