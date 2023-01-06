@@ -127,14 +127,47 @@ Additional info about it can be found here https://www.jenkins.io/doc/book/insta
 - Return to Jenkins
 - Dashboard -> Settings Jenkins -> Manage Credentials -> System -> Global credentials -> Add credentials
 - Fill with data:
+```
 Kind - Username and password
 Scope - global
 username - <your docker hub username>
 password - <your access token from docker hub>
 ID - docker-hub
-Description - docker-hub  
+Description - docker-hub
+```
   
-5. Run job
+5. Add AWS configs
+- Create new or reuse existing AWS account
+- Open IAM service on AWS console
+- Choose user groups, create new user group
+- Provide name of group, add at least next policies:
+  ```
+  AmazonECS_FullAccess
+  AWSCloudFormationFullAccess
+  ```
+- Continue to creation group
+- In IAM manager Add new user
+- Provide name, choose option `Access key - Programmatic access`
+- Add user to created user group
+- Finish creation user, and copy `Access Key ID` and `Secret Access Key`
+- Return to Jenkins
+- Dashboard -> Settings Jenkins -> Manage Credentials -> System -> Global credentials -> Add credentials
+- Fill with data:
+```
+Kind - AWS Credentials (If not exist, check if AWS plugin attached)
+Scope - global
+ID - aws-credentials
+Description - aws-credentials
+Access Key ID - <your AWS Access Key ID>
+Secret Access Key - <your AWS Secret Access Key>
+```
+
+6. Run job
 - Choose "Open Blue Ocean"
 - Run
 - Check your docker hub. Should be added new image
+- Open CloudFormation service on AWS, check if `stack-repository-search` stack has status CREATE_COMPLETE
+- Open API Gateway service on AWS, in `repository-search-mapping` open stage `$default`
+- Add URI `/api/v1/repositories/owner/andvod10?page=0&size=20` to the stage host and run in browser. List of repos rendered
+- Open CloudFormation service, choose `stack-repository-search` stack, and delete. Pay attention if stack successfully deleted.
+Otherwise, it will collect payment, even not used.
