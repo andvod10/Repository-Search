@@ -2,8 +2,6 @@ package com.tui.vcsrepositorysearch
 
 import com.tui.vcsrepositorysearch.application.dto.RsErrorResponse
 import com.tui.vcsrepositorysearch.service.exception.EntityNotFoundException
-import com.tui.vcsrepositorysearch.service.exception.EntityRangeNotFoundException
-import org.kohsuke.github.HttpException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.HttpMediaTypeException
@@ -49,9 +47,8 @@ class ControllerAdvisor {
 
     @ExceptionHandler(
         *[
-            EntityNotFoundException::class,
-            HttpException::class,
-            EntityRangeNotFoundException::class]
+            EntityNotFoundException::class
+        ]
     )
     @ResponseStatus(HttpStatus.NOT_FOUND)
     fun handleExceptionNotFoundExceptions(ex: Exception): ResponseEntity<RsErrorResponse<Any>> {

@@ -1,0 +1,564 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Demo of an AWS Fargate cluster hosting APIs exposed through API Gateway.
+
+Parameters:
+  ImageServiceName:
+    Type: String
+    Default: "vcs-repository-search-image"
+  ImageServiceVersion:
+    Type: String
+    Default: "0.0.1-SNAPSHOT"
+  DockerHubUsername:
+    Type: String
+  MinContainers:
+    Type: Number
+    Default: 2
+    Description: "Minimum number of ECS tasks per ECS service"
+  MaxContainers:
+    Type: Number
+    Default: 3
+    Description: "Maximum number of ECS tasks per ECS service"
+  AutoScalingTargetValue:
+    Type: Number
+    Default: 50
+    Description: "Target CPU utilization (%) for ECS services auto scaling"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Generic"
+        Parameters:
+          - ImageServiceName
+          - ImageServiceVersion
+          - DockerHubUsername
+      -
+        Label:
+          default: "Scaling Service"
+        Parameters:
+          - MinContainers
+          - MaxContainers
+          - AutoScalingTargetValue
+
+Mappings:
+  SubnetConfig:
+    # Hard values for the subnet masks. These masks define
+    # the range of internal IP addresses that can be assigned.
+    # The VPC can have all IP's from 10.0.0.0 to 10.0.255.255
+    # There are four subnets which cover the ranges:
+    #
+    # 10.0.0.0 - 10.0.0.255
+    # 10.0.1.0 - 10.0.1.255
+    # 10.0.2.0 - 10.0.2.255
+    # 10.0.3.0 - 10.0.3.255
+
+    VPC:
+      CIDR: '10.0.0.0/16'
+    PublicFirst:
+      CIDR: '10.0.0.0/24'
+    PublicSecond:
+      CIDR: '10.0.1.0/24'
+    PrivateFirst:
+      CIDR: '10.0.100.0/24'
+    PrivateSecond:
+      CIDR: '10.0.101.0/24'
+
+Resources:
+  # VPC in which containers will be networked.
+  # It has two public subnets, and two private subnets.
+  # We distribute the subnets across the first two available subnets
+  # for the region, for high availability.
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'VPC', 'CIDR' ]
+
+  # Two public subnets, where containers can have public IP addresses
+  PublicSubnetFirst:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PublicFirst', 'CIDR' ]
+      MapPublicIpOnLaunch: true
+  PublicSubnetSecond:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PublicSecond', 'CIDR' ]
+      MapPublicIpOnLaunch: true
+
+  # Two private subnets where containers will only have private
+  # IP addresses, and will only be reachable by other members of the
+  # VPC
+  PrivateSubnetFirst:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PrivateFirst', 'CIDR' ]
+      MapPublicIpOnLaunch: false
+  PrivateSubnetSecond:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      VpcId: !Ref VPC
+      CidrBlock: !FindInMap [ 'SubnetConfig', 'PrivateSecond', 'CIDR' ]
+      MapPublicIpOnLaunch: false
+
+  # Attaching a Internet Gateway to route table makes it public.
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachement:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Attaching a Internet Gateway to route table makes it public.
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachement
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+
+  # Attaching a public route table makes a subnet public.
+  PublicSubnetFirstRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetFirst
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetSecondRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetSecond
+      RouteTableId: !Ref PublicRouteTable
+
+  # Setup networking resources for the private subnets. Containers
+  # in these subnets have only private IP addresses, and must use a NAT
+  # gateway to talk to the internet. We launch two NAT gateways, one for
+  # each private subnet.
+  NatGatewayFirstAttachment:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachement
+    Properties:
+      Domain: vpc
+  #NAT gateway resource creates a network address translation (NAT) gateway in the specified public subnet.
+  #Use a NAT gateway to allow instances in a private subnet to connect to the Internet or to other AWS services,
+  #but prevent the Internet from initiating a connection with those instances.
+  NatGatewayFirst:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayFirstAttachment.AllocationId
+      SubnetId: !Ref PublicSubnetFirst
+
+  NatGatewaySecondAttachment:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachement
+    Properties:
+      Domain: vpc
+  NatGatewaySecond:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewaySecondAttachment.AllocationId
+      SubnetId: !Ref PublicSubnetSecond
+
+  # Each private subnet gets to go through a NAT to the outside internet.
+  PrivateRouteTableFirst:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteFirst:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableFirst
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayFirst
+  PrivateRouteTableFirstAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableFirst
+      SubnetId: !Ref PrivateSubnetFirst
+
+  PrivateRouteTableSecond:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteSecond:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableSecond
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewaySecond
+  PrivateRouteTableSecondAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableSecond
+      SubnetId: !Ref PrivateSubnetSecond
+
+  # OPTIONAL: VPC Endpoint for Other AWS Services (DynamoDB in this case)
+  # If a container needs to access DynamoDB this allows a container in the private subnet
+  # to talk to DynamoDB directly without needing to go via the NAT gateway. This reduces
+  # the amount of bandwidth through the gateway, meaning that the gateway is free to serve
+  # your other traffic.
+  # Creates a VPC endpoint that you can use to establish a private connection between your VPC
+  # and another AWS service without requiring access over the Internet, a VPN connection, or AWS Direct Connect.
+  DynamoDBEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "*"
+            Principal: "*"
+            Resource: "*"
+      RouteTableIds:
+        - !Ref PrivateRouteTableFirst
+        - !Ref PrivateRouteTableSecond
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.dynamodb
+      VpcId: !Ref 'VPC'
+
+  # A role used to allow AWS Autoscaling to inspect stats and adjust scaleable targets
+  # on your AWS account
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole
+
+  # This is an IAM role which authorizes ECS to manage resources on your
+  # account on your behalf, such as updating your load balancer with the
+  # details of where your containers are, so that traffic can reach your
+  # containers.
+  ECSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ ecs.amazonaws.com ]
+            Action: [ 'sts:AssumeRole' ]
+      Path: /
+      Policies:
+        - PolicyName: ecs-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  # Rules which allow ECS to attach network interfaces to instances
+                  # on your behalf in order for awsvpc networking mode to work right
+                  - 'ec2:AttachNetworkInterface'
+                  - 'ec2:CreateNetworkInterface'
+                  - 'ec2:CreateNetworkInterfacePermission'
+                  - 'ec2:DeleteNetworkInterface'
+                  - 'ec2:DeleteNetworkInterfacePermission'
+                  - 'ec2:Describe*'
+                  - 'ec2:DetachNetworkInterface'
+
+                  # Rules which allow ECS to update load balancers on your behalf
+                  # with the information sabout how to send traffic to your containers
+                  - 'elasticloadbalancing:DeregisterInstancesFromLoadBalancer'
+                  - 'elasticloadbalancing:DeregisterTargets'
+                  - 'elasticloadbalancing:Describe*'
+                  - 'elasticloadbalancing:RegisterInstancesWithLoadBalancer'
+                  - 'elasticloadbalancing:RegisterTargets'
+                Resource: '*'
+
+  # This is a role which is used by the ECS tasks themselves.
+  TaskDefExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+        Version: 2012-10-17
+
+  TaskDefExecutionRoleDefaultPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Effect: Allow
+            Resource: !GetAtt ServiceTaskDefwebLogGroup.Arn
+        Version: 2012-10-17
+      PolicyName: 'TaskDefinishionLogPolicyName'
+      Roles:
+        - !Ref TaskDefExecutionRole
+
+  # A log group for storing the stdout logs from this service's containers
+  ServiceTaskDefwebLogGroup:
+    Type: AWS::Logs::LogGroup
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+
+  # ECS Resources
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: stack-deployment-cluster
+
+  # The task definition. This is a simple metadata description of what
+  # container to run, and what resource requirements it has.
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${ImageServiceName}
+      Cpu: 1024
+      Memory: 2048
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt TaskDefExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: !Sub ${ImageServiceName}
+          Image: !Sub ${DockerHubUsername}/${ImageServiceName}:${ImageServiceVersion}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ServiceTaskDefwebLogGroup
+              awslogs-stream-prefix: RepositorySearchService
+              awslogs-region: !Ref AWS::Region
+          PortMappings:
+            - ContainerPort: 8080
+      RequiresCompatibilities:
+        - EC2
+        - FARGATE
+      TaskRoleArn: !GetAtt TaskDefExecutionRole.Arn
+
+  # A security group for the containers we will run in Fargate.
+  # Rules are added to this security group based on what ingress you
+  # add for the cluster.
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Automatically created Security Group for ECS
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: '-1'
+      VpcId: !Ref VPC
+  ServiceSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt ServiceSecurityGroup.GroupId
+      SourceSecurityGroupId: !GetAtt ServiceLBSecurityGroup.GroupId
+      Description: Allow LB security group inbound traffic by default
+      IpProtocol: '-1'
+
+  # The service. The service is a resource which allows you to run multiple
+  # copies of a type of task, and gather up their logs and metrics, as well
+  # as monitor the number of running tasks and replace any that have crashed
+  ServiceRepositorySearch:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - PrivateRouteFirst
+      - PrivateRouteSecond
+      - LoadBalancerListener
+    Properties:
+      ServiceName: !Sub ${ImageServiceName}
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: !Sub ${ImageServiceName}
+          ContainerPort: 8080
+          TargetGroupArn: !Ref LoadBalancerTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref PublicSubnetFirst
+            - !Ref PublicSubnetSecond
+          SecurityGroups:
+            - !GetAtt ServiceSecurityGroup.GroupId
+
+  AutoScalingTargetService:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref MinContainers
+      MaxCapacity: !Ref MaxContainers
+      ResourceId: !Join [ '/', [ service, !Ref ECSCluster, !GetAtt ServiceRepositorySearch.Name ] ]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !GetAtt AutoScalingRole.Arn
+
+  AutoScalingPolicyService:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join [ '', [ !GetAtt ServiceRepositorySearch.Name, '-AutoScalingPolicy' ] ]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTargetService
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: !Ref AutoScalingTargetValue
+
+  ServiceLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Automatically created Security Group for ELB
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow from anyone on port 80
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      VpcId: !Ref VPC
+  ServiceLBSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt ServiceLBSecurityGroup.GroupId
+      IpProtocol: tcp
+      Description: Load balancer to target
+      DestinationSecurityGroupId: !GetAtt ServiceSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+
+  # A target group. This is used for keeping track of all the tasks, and
+  # what IP addresses / port numbers they have. You can query it yourself,
+  # to use the addresses yourself, but most often this target group is just
+  # connected to an application load balancer, or network load balancer, so
+  # it can automatically distribute traffic across all the targets.
+  LoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 50
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Port: 8080
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VPC
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: 'false'
+      Scheme: internet-facing
+      SecurityGroups:
+        - !GetAtt ServiceLBSecurityGroup.GroupId
+      Subnets:
+        - !Ref PublicSubnetFirst
+        - !Ref PublicSubnetSecond
+      Type: application
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref LoadBalancerTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  VpcLink:
+    Type: AWS::ApiGatewayV2::VpcLink
+    Properties:
+      Name: !Ref ImageServiceName
+      SecurityGroupIds: []
+      SubnetIds:
+        - !Ref PrivateSubnetFirst
+        - !Ref PrivateSubnetSecond
+
+  HTTPApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: repository-search-mapping
+      ProtocolType: HTTP
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HTTPApi
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref VpcLink
+      Description: HTTP proxy integration
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: ANY
+      IntegrationUri: !Ref LoadBalancerListener
+      PayloadFormatVersion: 1.0
+  Route:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPApi
+      RouteKey: 'ANY /{proxy+}'
+      Target: !Join
+        - /
+        - - integrations
+          - !Ref Integration
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HTTPApi
+      AutoDeploy: true
+      StageName: '$default'
+      AccessLogSettings:
+        DestinationArn: !GetAtt GatewayLogGroup.Arn
+        Format: >-
+          $context.identity.sourceIp - - [$context.requestTime]
+          "$context.httpMethod $context.routeKey $context.protocol"
+          $context.status $context.responseLength $context.requestId
+          $context.integrationErrorMessage
+
+  GatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 731
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+
+Outputs:
+  APIInvokeURL:
+    Description: Invoke URL for the HTTP API
+    Value: !Sub 'https://${HTTPApi}.execute-api.${AWS::Region}.amazonaws.com'
+  APIId:
+    Description: The ID of the HTTP API
+    Value: !Ref HTTPApi
+  ClusterName:
+    Description: The name of the ECS cluster
+    Value: !Ref ECSCluster
+  VpcId:
+    Description: The ID of the VPC that this stack is deployed in
+    Value: !Ref VPC
+  ServiceSecurityGroup:
+    Description: A security group used to allow Fargate containers to receive traffic
+    Value: !Ref ServiceSecurityGroup
+  ServiceLBSecurityGroup:
+    Description: A security group used to allow ALB traffic
+    Value: !Ref ServiceLBSecurityGroup

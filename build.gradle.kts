@@ -8,8 +8,6 @@ plugins {
     kotlin("jvm") version "1.7.21"
     kotlin("plugin.spring") version "1.7.21"
     id("org.openapi.generator") version "6.2.1"
-    id("com.google.cloud.tools.jib") version "2.7.1"
-    id("jp.classmethod.aws.reboot.cloudformation") version "0.45"
 }
 
 group = "com.tui"
@@ -38,6 +36,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-devtools")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
@@ -55,9 +55,6 @@ dependencies {
     //swagger
     implementation("org.springdoc:springdoc-openapi-ui:$openApiVersion")
     runtimeOnly("org.springdoc:springdoc-openapi-kotlin:$openApiVersion")
-
-    //github
-    implementation("org.kohsuke:github-api:1.313")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
@@ -87,8 +84,3 @@ tasks.openApiGenerate {
     inputSpec.set("$rootDir/src/main/resources/static/repository-search.yml")
     outputDir.set("$buildDir/generated")
 }
-
-jib {
-    to.image = "my-docker-id/my-app"
-}
-

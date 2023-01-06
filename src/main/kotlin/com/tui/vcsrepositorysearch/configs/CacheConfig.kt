@@ -3,7 +3,7 @@ package com.tui.vcsrepositorysearch.configs
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.RemovalListener
-import com.tui.vcsrepositorysearch.data.entity.GithubRepository
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepositoriesCache
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.Cache
@@ -58,7 +58,7 @@ class CacheConfig constructor(
         return RemovalListener<Any, Any> { key, value, cause ->
             if (cause == RemovalCause.EXPIRED || cause == RemovalCause.EXPLICIT) {
                 when (value) {
-                    is GithubRepository ->
+                    is GithubRepositoriesCache ->
                         log.debug(
                             "Cache entry with key $key of type ${value::class.java.name}" +
                                     " has been cleared by cause $cause"

@@ -27,6 +27,7 @@ private val SWAGGER_REQUESTS = arrayOf(
 
 private val AUTH_REQUESTS = SWAGGER_REQUESTS + arrayOf(
     "/",
+    "/profile",
     "/actuator/**",
     "/${APIVersions.API}/${APIVersions.V1}/repositories/**"
 )

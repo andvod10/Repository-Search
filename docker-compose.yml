@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  repository-search:
+    build: .
+    container_name: repository-search
+    ports:
+      - "8000:8080"
+    restart: on-failure
+
+volumes:
+  repository-search-data:
+    #Volumes for repository-search data
