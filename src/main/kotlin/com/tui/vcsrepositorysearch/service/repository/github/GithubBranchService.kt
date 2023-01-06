@@ -1,14 +1,12 @@
 package com.tui.vcsrepositorysearch.service.repository.github;
 
-import com.tui.vcsrepositorysearch.data.entity.GithubBranchesCache
 import com.tui.vcsrepositorysearch.data.entity.GithubBranch
+import com.tui.vcsrepositorysearch.data.entity.GithubBranchesCache
 import com.tui.vcsrepositorysearch.data.entity.GithubRepo
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
-import java.time.Duration
-import java.util.Optional
+import reactor.core.scheduler.Schedulers
 
 interface GithubBranchService {
     fun retrieveBranchFromGitHubByRepository(repository: GithubRepo): GithubBranchesCache
@@ -16,8 +14,6 @@ interface GithubBranchService {
 
 @Service
 class GithubBranchServiceImpl constructor(
-    @Value("\${github.duration-of-single-execution-millis}")
-    private val githubDurationOfSingleExecutionMillis: Long,
     private val githubWebClient: GithubWebClient
 ): GithubBranchService {
     private val log = LoggerFactory.getLogger(GithubBranchServiceImpl::class.java)
@@ -30,7 +26,6 @@ class GithubBranchServiceImpl constructor(
         log.debug("Direct call to Github Branch performing...")
         val pathParams = arrayOf(repository.owner.login, repository.name)
         val githubBranches = retrieveBranchesByWebClient(pathParams = pathParams)
-            .orElse(arrayOf()).toList()
 
         val githubBranch = GithubBranchesCache(
             repositoryName = repository.name,
@@ -40,12 +35,21 @@ class GithubBranchServiceImpl constructor(
         return githubBranch
     }
 
-    private fun retrieveBranchesByWebClient(pathParams: Array<String>): Optional<Array<GithubBranch>> {
+    //Retrieving branches for each repository concurrently
+    //Should be tried integrate webclient with coroutine or can be used non-blocking stream
+    private fun retrieveBranchesByWebClient(pathParams: Array<String>): List<GithubBranch> {
         val responseSpec = this.githubWebClient.retrieveRequest(
             pathUri = GithubUri.GET_BRANCHES_URI,
             pathParams = pathParams
         )
-        return responseSpec.bodyToMono(Array<GithubBranch>::class.java)
-            .blockOptional(Duration.ofMillis(githubDurationOfSingleExecutionMillis))
+        val branches = mutableListOf<GithubBranch>()
+        responseSpec.bodyToFlux(GithubBranch::class.java)
+            .parallel()
+            .runOn(Schedulers.boundedElastic())
+            .doOnNext(branches::add)
+            .sequential()
+            .blockLast()
+
+        return branches.toList()
     }
 }
