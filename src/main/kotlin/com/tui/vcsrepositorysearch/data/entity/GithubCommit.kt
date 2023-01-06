@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class GithubBranch(
-    @JsonProperty("name")
-    val name: String,
-    @JsonProperty("commit")
-    val commit: GithubCommit
+data class GithubCommit(
+    @JsonProperty("sha")
+    val sha: String,
+    @JsonProperty("url")
+    val url: String
 )

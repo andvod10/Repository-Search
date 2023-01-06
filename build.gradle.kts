@@ -36,6 +36,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-devtools")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
@@ -53,9 +55,6 @@ dependencies {
     //swagger
     implementation("org.springdoc:springdoc-openapi-ui:$openApiVersion")
     runtimeOnly("org.springdoc:springdoc-openapi-kotlin:$openApiVersion")
-
-    //github
-    implementation("org.kohsuke:github-api:1.313")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")

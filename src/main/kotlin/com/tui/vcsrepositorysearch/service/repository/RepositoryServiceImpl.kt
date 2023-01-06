@@ -2,9 +2,9 @@ package com.tui.vcsrepositorysearch.service.repository
 
 import com.tui.vcsrepositorysearch.application.dto.RsBranch
 import com.tui.vcsrepositorysearch.application.dto.RsRepository
+import com.tui.vcsrepositorysearch.data.entity.GithubRepo
 import com.tui.vcsrepositorysearch.data.mappers.toResponse
 import com.tui.vcsrepositorysearch.service.exception.EntityNotFoundException
-import com.tui.vcsrepositorysearch.service.exception.EntityRangeNotFoundException
 import com.tui.vcsrepositorysearch.service.repository.github.GithubBranchService
 import com.tui.vcsrepositorysearch.service.repository.github.GithubRepositoryService
 import kotlinx.coroutines.Deferred
@@ -13,7 +13,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
-import org.kohsuke.github.GHRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
@@ -43,7 +42,8 @@ class RepositoryServiceImpl constructor(
         pageable: Pageable
     ): List<RsRepository> = coroutineScope {
         val repos = githubRepositoryService.retrieveRepositoryFromGitHubByUser(
-            user = ownerName
+            user = ownerName,
+            pageable = pageable
         ).repositories
 
         val chunk = getChunkOfList(list = repos, pageable = pageable)
@@ -83,22 +83,6 @@ class RepositoryServiceImpl constructor(
         return result
     }
 
-    private fun getChunkOfList(list: List<GHRepository>, pageable: Pageable): List<GHRepository> {
-        return try {
-            list.chunked(pageable.pageSize)[pageable.pageNumber]
-        } catch (ex: IndexOutOfBoundsException) {
-            throw EntityRangeNotFoundException(list.size)
-        }
-    }
-
-    private fun sortListByPageable(list: List<GHRepository>, pageable: Pageable): List<GHRepository> {
-        return if (pageable.sort.getOrderFor(RsRepository::name.name)?.isAscending == true) {
-            list.sortedBy { it.name }
-        } else {
-            list.sortedByDescending { it.name }
-        }
-    }
-
     override fun getRepositoriesByName(repositoryName: String, ownerName: String): RsRepository {
         val repository = this.githubRepositoryService.retrieveRepositoryByName(repositoryName, ownerName)
         return if (repository != null) {
@@ -120,6 +104,22 @@ class RepositoryServiceImpl constructor(
         } else {
             githubBranchService.retrieveBranchFromGitHubByRepository(repo).branches
                 .map { it.toResponse() }
+        }
+    }
+
+    private fun getChunkOfList(list: List<GithubRepo>, pageable: Pageable): List<GithubRepo> {
+        return try {
+            list.chunked(pageable.pageSize)[pageable.pageNumber]
+        } catch (ex: IndexOutOfBoundsException) {
+            listOf()
+        }
+    }
+
+    private fun sortListByPageable(list: List<GithubRepo>, pageable: Pageable): List<GithubRepo> {
+        return if (pageable.sort.getOrderFor(RsRepository::name.name)?.isAscending == true) {
+            list.sortedBy { it.name }
+        } else {
+            list.sortedByDescending { it.name }
         }
     }
 }

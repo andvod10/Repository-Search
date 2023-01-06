@@ -1,21 +1,23 @@
 package com.tui.vcsrepositorysearch.configs.mock
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.tui.vcsrepositorysearch.data.entity.GithubBranchesCache
 import com.tui.vcsrepositorysearch.data.entity.GithubBranch
-import org.kohsuke.github.GHBranch
-import org.kohsuke.github.GitHub
 import org.springframework.util.ResourceUtils
 
 class GithubBranchMock {
-    fun getGithubBranchesByUserAndRepository(): GithubBranch {
+    private val objectMapper: ObjectMapper = ObjectMapper()
+
+    fun getGithubBranchesByUserAndRepository(): GithubBranchesCache {
         val branches = deserializeTestBranches()
-        return GithubBranch(
+        return GithubBranchesCache(
             repositoryName = "docker-frontend",
             branches = branches
         )
     }
 
-    private fun deserializeTestBranches(): List<GHBranch> {
+    private fun deserializeTestBranches(): List<GithubBranch> {
         val file = ResourceUtils.getFile("classpath:mock_branches.json")
-        return GitHub.getMappingObjectReader().readValue(file.readText(), Array<GHBranch>::class.java).toList()
+        return objectMapper.readValue(file.readText(), Array<GithubBranch>::class.java).toList()
     }
 }

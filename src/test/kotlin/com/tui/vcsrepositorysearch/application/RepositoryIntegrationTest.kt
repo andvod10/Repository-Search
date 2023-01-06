@@ -224,12 +224,33 @@ class RepositoryIntegrationTest {
                 .accept(MediaType.APPLICATION_JSON)
                 .queryParam("size", "2")
                 .queryParam("page", "2")
-        ).andExpect(status().isNotFound)
+        ).andExpect(status().isOk)
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(
                 content().json(
                     """
-                    {"status":"NOT_FOUND","code":404,"message":"Entities in range not found. Size = 2"}
+                    {
+                      "_links" : {
+                        "first" : {
+                          "href" : "http://localhost/api/v1/repositories/owner/andvod10?page=0&size=2"
+                        },
+                        "prev" : {
+                          "href" : "http://localhost/api/v1/repositories/owner/andvod10?page=1&size=2"
+                        },
+                        "self" : {
+                          "href" : "http://localhost/api/v1/repositories/owner/andvod10?page=2&size=2"
+                        },
+                        "last" : {
+                          "href" : "http://localhost/api/v1/repositories/owner/andvod10?page=0&size=2"
+                        }
+                      },
+                      "page" : {
+                        "size" : 2,
+                        "totalElements" : 0,
+                        "totalPages" : 0,
+                        "number" : 2
+                      }
+                    }
                 """, true
                 )
             ).andReturn()
