@@ -2,11 +2,11 @@ package com.tui.vcsrepositorysearch.service.repository
 
 import com.tui.vcsrepositorysearch.application.dto.RsBranch
 import com.tui.vcsrepositorysearch.application.dto.RsRepository
-import com.tui.vcsrepositorysearch.data.entity.GithubRepo
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepo
 import com.tui.vcsrepositorysearch.data.mappers.toResponse
 import com.tui.vcsrepositorysearch.service.exception.EntityNotFoundException
-import com.tui.vcsrepositorysearch.service.repository.github.GithubBranchService
-import com.tui.vcsrepositorysearch.service.repository.github.GithubRepositoryService
+import com.tui.vcsrepositorysearch.service.repository.github.usecase.GithubBranchService
+import com.tui.vcsrepositorysearch.service.repository.github.usecase.GithubRepositoryService
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -14,6 +14,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.cache.CacheManager
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
@@ -23,7 +24,8 @@ import kotlin.system.measureTimeMillis
 @Service
 class RepositoryServiceImpl constructor(
     private val githubRepositoryService: GithubRepositoryService,
-    private val githubBranchService: GithubBranchService
+    private val githubBranchService: GithubBranchService,
+    private val cacheManager: CacheManager
 ) : RepositoryService {
     private val log = LoggerFactory.getLogger(RepositoryServiceImpl::class.java)
 
@@ -32,11 +34,14 @@ class RepositoryServiceImpl constructor(
         pageable: Pageable
     ): Page<RsRepository> {
         val repos = runBlocking {
+            //Choose one of concurrency case:
+            //loadRepositoriesBlocking (blocking), loadRepositoriesConcurrent (non-blocking)
             loadRepositoriesConcurrent(ownerName, pageable)
         }
         return PageImpl(repos, pageable, repos.size.toLong())
     }
 
+    //Retrieving repositories by coroutine concurrency
     private suspend fun loadRepositoriesConcurrent(
         ownerName: String,
         pageable: Pageable
@@ -62,12 +67,14 @@ class RepositoryServiceImpl constructor(
         return@coroutineScope result
     }
 
+    //Retrieving repositories in blocking thread concurrency
     private fun loadRepositoriesBlocking(
         ownerName: String,
         pageable: Pageable
     ): List<RsRepository> {
         val repos = this.githubRepositoryService.retrieveRepositoryFromGitHubByUser(
-            user = ownerName
+            user = ownerName,
+            pageable = pageable
         ).repositories
         val chunk = getChunkOfList(list = repos, pageable = pageable)
         val sortedChunk = sortListByPageable(list = chunk, pageable = pageable)
@@ -94,16 +101,12 @@ class RepositoryServiceImpl constructor(
     }
 
     override fun getRepositoryBranches(repositoryName: String, ownerName: String): List<RsBranch> {
-        val repo = this.githubRepositoryService.retrieveRepositoryFromGitHubByUser(
-            user = ownerName
-        ).repositories
-            .firstOrNull { it.name == repositoryName }
-
-        return if (repo == null) {
-            listOf()
-        } else {
-            githubBranchService.retrieveBranchFromGitHubByRepository(repo).branches
+        val repository = this.githubRepositoryService.retrieveRepositoryByName(repositoryName, ownerName)
+        return if (repository != null) {
+            githubBranchService.retrieveBranchFromGitHubByRepository(repository).branches
                 .map { it.toResponse() }
+        } else {
+            throw EntityNotFoundException(repositoryName)
         }
     }
 

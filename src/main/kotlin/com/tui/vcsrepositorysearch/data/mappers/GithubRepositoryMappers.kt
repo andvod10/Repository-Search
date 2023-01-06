@@ -2,9 +2,9 @@ package com.tui.vcsrepositorysearch.data.mappers
 
 import com.tui.vcsrepositorysearch.application.dto.RsBranch
 import com.tui.vcsrepositorysearch.application.dto.RsRepository
-import com.tui.vcsrepositorysearch.data.entity.GithubBranchesCache
-import com.tui.vcsrepositorysearch.data.entity.GithubBranch
-import com.tui.vcsrepositorysearch.data.entity.GithubRepo
+import com.tui.vcsrepositorysearch.data.entity.github.GithubBranchesCache
+import com.tui.vcsrepositorysearch.data.entity.github.GithubBranch
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepo
 
 fun GithubRepo.toResponse(githubBranchesCache: GithubBranchesCache): RsRepository {
     return RsRepository(

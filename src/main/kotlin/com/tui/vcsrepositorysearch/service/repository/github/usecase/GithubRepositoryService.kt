@@ -1,8 +1,10 @@
-package com.tui.vcsrepositorysearch.service.repository.github;
+package com.tui.vcsrepositorysearch.service.repository.github.usecase
 
-import com.tui.vcsrepositorysearch.data.entity.GithubRepo
-import com.tui.vcsrepositorysearch.data.entity.GithubRepos
-import com.tui.vcsrepositorysearch.data.entity.GithubRepositoriesCache
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepo
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepos
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepositoriesCache
+import com.tui.vcsrepositorysearch.service.repository.github.GithubUri
+import com.tui.vcsrepositorysearch.service.repository.github.GithubWebClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.annotation.Cacheable
@@ -15,7 +17,7 @@ import java.time.Duration
 interface GithubRepositoryService {
     fun retrieveRepositoryFromGitHubByUser(
         user: String,
-        pageable: Pageable? = null,
+        pageable: Pageable,
         withForks: Boolean = false
     ): GithubRepositoriesCache
 
@@ -28,34 +30,61 @@ class GithubRepositoryServiceImpl constructor(
     private val githubDefaultPageSize: Int,
     @Value("\${github.duration-of-single-execution-millis}")
     private val githubDurationOfSingleExecutionMillis: Long,
+    @Value("\${github.max-count-of-cacheable-items}")
+    val githubMaxCountOfCacheableItems: Long,
     private val githubWebClient: GithubWebClient
 ) : GithubRepositoryService {
     private val log = LoggerFactory.getLogger(GithubRepositoryServiceImpl::class.java)
 
     @Cacheable(
         value = ["githubRepository"],
-        key = "#user"
+        key = "#user",
+        unless="#result.totalCount > #root.target.githubMaxCountOfCacheableItems"
     )
     override fun retrieveRepositoryFromGitHubByUser(
         user: String,
-        pageable: Pageable?,
+        pageable: Pageable,
         withForks: Boolean
     ): GithubRepositoriesCache {
         log.debug("Direct call to Github Repository performing...")
-        val perPage = pageable?.pageSize ?: githubDefaultPageSize
-        val page = pageable?.pageNumber ?: 0
 
+        val qParam = buildQParam(user, withForks)
         val queryParams = LinkedMultiValueMap<String, String>()
-        queryParams.add("q", buildQParam(user, withForks))
-        queryParams.add("per_page", perPage.toString())
-        queryParams.add("page", page.toString())
+        queryParams.add("q", qParam)
+        queryParams.add("per_page", pageable.pageSize.toString())
+        queryParams.add("page", pageable.pageNumber.toString())
 
         val githubRepos = retrieveRepositoriesByWebClient(queryParams)
+        val totalCount = githubRepos?.totalCount ?: 0
 
+        val repos = if (totalCount > githubMaxCountOfCacheableItems) {
+            githubRepos?.items ?: listOf()
+        } else {
+            collectAllReposByUser(totalCount, qParam)
+        }
         return GithubRepositoriesCache(
             userName = user,
-            repositories = githubRepos?.items ?: listOf()
+            totalCount = totalCount,
+            repositories = repos
         )
+    }
+
+    private fun collectAllReposByUser(totalCount: Int, q: String): List<GithubRepo> {
+        val queryParams = LinkedMultiValueMap<String, String>()
+
+        var page = 0
+        val repos = mutableListOf<GithubRepo>()
+        while (totalCount > githubDefaultPageSize * page) {
+            page++
+
+            queryParams.clear()
+            queryParams.add("q", q)
+            queryParams.add("per_page", githubDefaultPageSize.toString())
+            queryParams.add("page", page.toString())
+
+            repos.addAll(retrieveRepositoriesByWebClient(queryParams)?.items ?: listOf())
+        }
+        return repos
     }
 
     override fun retrieveRepositoryByName(repositoryName: String, ownerName: String): GithubRepo? {

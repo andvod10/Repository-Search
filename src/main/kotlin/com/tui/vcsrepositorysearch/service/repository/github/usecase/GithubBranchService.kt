@@ -1,8 +1,10 @@
-package com.tui.vcsrepositorysearch.service.repository.github;
+package com.tui.vcsrepositorysearch.service.repository.github.usecase
 
-import com.tui.vcsrepositorysearch.data.entity.GithubBranch
-import com.tui.vcsrepositorysearch.data.entity.GithubBranchesCache
-import com.tui.vcsrepositorysearch.data.entity.GithubRepo
+import com.tui.vcsrepositorysearch.data.entity.github.GithubBranch
+import com.tui.vcsrepositorysearch.data.entity.github.GithubBranchesCache
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepo
+import com.tui.vcsrepositorysearch.service.repository.github.GithubUri
+import com.tui.vcsrepositorysearch.service.repository.github.GithubWebClient
 import org.slf4j.LoggerFactory
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
@@ -27,12 +29,12 @@ class GithubBranchServiceImpl constructor(
         val pathParams = arrayOf(repository.owner.login, repository.name)
         val githubBranches = retrieveBranchesByWebClient(pathParams = pathParams)
 
-        val githubBranch = GithubBranchesCache(
+        val githubBranchesCache = GithubBranchesCache(
             repositoryName = repository.name,
             branches = githubBranches
         )
         log.debug("Direct call to Github Branch performed.")
-        return githubBranch
+        return githubBranchesCache
     }
 
     //Retrieving branches for each repository concurrently

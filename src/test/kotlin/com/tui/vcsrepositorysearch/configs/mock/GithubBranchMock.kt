@@ -1,8 +1,8 @@
 package com.tui.vcsrepositorysearch.configs.mock
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.tui.vcsrepositorysearch.data.entity.GithubBranchesCache
-import com.tui.vcsrepositorysearch.data.entity.GithubBranch
+import com.tui.vcsrepositorysearch.data.entity.github.GithubBranchesCache
+import com.tui.vcsrepositorysearch.data.entity.github.GithubBranch
 import org.springframework.util.ResourceUtils
 
 class GithubBranchMock {

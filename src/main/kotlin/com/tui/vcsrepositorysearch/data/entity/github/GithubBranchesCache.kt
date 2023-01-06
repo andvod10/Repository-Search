@@ -1,4 +1,4 @@
-package com.tui.vcsrepositorysearch.data.entity
+package com.tui.vcsrepositorysearch.data.entity.github
 
 data class GithubBranchesCache(
     val repositoryName: String,

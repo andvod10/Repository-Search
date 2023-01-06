@@ -3,7 +3,7 @@ package com.tui.vcsrepositorysearch.configs
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.RemovalListener
-import com.tui.vcsrepositorysearch.data.entity.GithubRepositoriesCache
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepositoriesCache
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.Cache

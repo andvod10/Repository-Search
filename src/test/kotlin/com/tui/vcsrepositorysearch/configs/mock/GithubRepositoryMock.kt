@@ -1,18 +1,20 @@
 package com.tui.vcsrepositorysearch.configs.mock
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.tui.vcsrepositorysearch.data.entity.GithubRepo
-import com.tui.vcsrepositorysearch.data.entity.GithubRepos
-import com.tui.vcsrepositorysearch.data.entity.GithubRepositoriesCache
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepo
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepos
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepositoriesCache
 import org.springframework.util.ResourceUtils
 
 class GithubRepositoryMock {
     private val objectMapper: ObjectMapper = ObjectMapper()
 
     fun getGithubRepositoryListByUser(): GithubRepositoriesCache {
+        val repos = deserializeTestRepositories()
         return GithubRepositoriesCache(
             userName = "andvod10",
-            repositories = deserializeTestRepositories().items
+            totalCount = repos.totalCount,
+            repositories = repos.items
         )
     }
 

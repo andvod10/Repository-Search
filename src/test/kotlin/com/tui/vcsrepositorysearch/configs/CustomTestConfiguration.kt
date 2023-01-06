@@ -2,11 +2,11 @@ package com.tui.vcsrepositorysearch.configs
 
 import com.tui.vcsrepositorysearch.configs.mock.GithubBranchMock
 import com.tui.vcsrepositorysearch.configs.mock.GithubRepositoryMock
-import com.tui.vcsrepositorysearch.data.entity.GithubBranchesCache
-import com.tui.vcsrepositorysearch.data.entity.GithubRepo
-import com.tui.vcsrepositorysearch.data.entity.GithubRepositoriesCache
-import com.tui.vcsrepositorysearch.service.repository.github.GithubBranchService
-import com.tui.vcsrepositorysearch.service.repository.github.GithubRepositoryService
+import com.tui.vcsrepositorysearch.data.entity.github.GithubBranchesCache
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepo
+import com.tui.vcsrepositorysearch.data.entity.github.GithubRepositoriesCache
+import com.tui.vcsrepositorysearch.service.repository.github.usecase.GithubBranchService
+import com.tui.vcsrepositorysearch.service.repository.github.usecase.GithubRepositoryService
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
@@ -20,7 +20,7 @@ class CustomTestConfiguration {
         return object : GithubRepositoryService {
             override fun retrieveRepositoryFromGitHubByUser(
                 user: String,
-                pageable: Pageable?,
+                pageable: Pageable,
                 withForks: Boolean
             ): GithubRepositoriesCache {
                 return GithubRepositoryMock().getGithubRepositoryListByUser()
