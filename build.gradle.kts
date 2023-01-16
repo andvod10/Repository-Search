@@ -7,6 +7,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.0"
     kotlin("jvm") version "1.7.21"
     kotlin("plugin.spring") version "1.7.21"
+    kotlin("kapt") version "1.7.21"
     id("org.openapi.generator") version "6.2.1"
 }
 
@@ -42,6 +43,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
+    //mapper
+    implementation("org.mapstruct:mapstruct:1.5.3.Final")
+    kapt("org.mapstruct:mapstruct-processor:1.5.3.Final")
+
     //coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:$coroutinesVersion")
@@ -58,6 +63,7 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("com.github.tomakehurst:wiremock-jre8-standalone:2.35.0")
 }
 
 tasks.withType<KotlinCompile> {
