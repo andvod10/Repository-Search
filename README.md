@@ -31,13 +31,13 @@ Should be used any of [Docker](#docker) or [Docker-Compose](#docker-compose) app
 - localhost:8080/actuator/health
 
 2.Open specification
-- localhost:8080/swagger-ui/
+- http://localhost:8080/swagger-ui/index.html
 
 3.Retrieve all repositories the latest commits for branches. Use API
-- /api/v1/repositories/owner/{ownerName}
+- /api/v1/owner/{ownerName}/repositories
 
 4.Retrieve repositories the latest commits for branches with pagination. Use API with query params
-- /api/v1/repositories/owner/{ownerName}?page={page}&size={size}
+- /api/v1/owner/{ownerName}/repositories?page={page}&size={size}
 
 5.Use one of hypermedia links from response or use another API for more precise results
 
@@ -168,6 +168,6 @@ Secret Access Key - <your AWS Secret Access Key>
 - Check your docker hub. Should be added new image
 - Open CloudFormation service on AWS, check if `stack-repository-search` stack has status CREATE_COMPLETE
 - Open API Gateway service on AWS, in `repository-search-mapping` open stage `$default`
-- Add URI `/api/v1/repositories/owner/andvod10?page=0&size=20` to the stage host and run in browser. List of repos rendered
+- Add URI `/api/v1/owner/andvod10/repositories?page=0&size=20` to the stage host and run in browser. List of repos rendered
 - Open CloudFormation service, choose `stack-repository-search` stack, and delete. Pay attention if stack successfully deleted.
 Otherwise, it will collect payment, even not used.

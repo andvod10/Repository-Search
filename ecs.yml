@@ -356,8 +356,8 @@ Resources:
       TaskRoleArn: !GetAtt TaskDefExecutionRole.Arn
 
   # A security group for the containers we will run in Fargate.
-  # Rules are added to this security group based on what ingress you
-  # add for the cluster.
+  # Rules are added to this security group based on what security group
+  # can access to the cluster and the cluster can access any host.
   ServiceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -424,6 +424,9 @@ Resources:
           PredefinedMetricType: ECSServiceAverageCPUUtilization
         TargetValue: !Ref AutoScalingTargetValue
 
+  # A security group for the Load Balancer.
+  # Any host can access LB on 80 port.
+  # Only traffic from Container Security Group can go out.
   ServiceLBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -488,6 +491,8 @@ Resources:
       Port: 80
       Protocol: HTTP
 
+  # VPC links enable you to create private integrations that connect your HTTP API routes to private resources in a VPC,
+  # in such case to Application Load Balancer
   VpcLink:
     Type: AWS::ApiGatewayV2::VpcLink
     Properties:
@@ -497,6 +502,8 @@ Resources:
         - !Ref PrivateSubnetFirst
         - !Ref PrivateSubnetSecond
 
+  # Creates Restful API for the service, described in cluster
+  # Maps all API from backend to the Gateway API
   HTTPApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
@@ -536,6 +543,7 @@ Resources:
           $context.status $context.responseLength $context.requestId
           $context.integrationErrorMessage
 
+  # Logs all requests made through API Gateway into CloudWatch LogGroup
   GatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
